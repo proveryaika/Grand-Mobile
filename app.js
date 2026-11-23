@@ -32,7 +32,35 @@ const harborSvg='<svg viewBox="0 0 700 430"><defs><pattern id="grid" width="28" 
 const mapSvg={district:'<svg viewBox="0 0 700 430"><rect width="700" height="430" fill="#26302c"/><path d="M0 170H700M0 300H700M220 0V430M470 0V430" stroke="#b5a98b" stroke-width="48"/><g fill="#59645b" stroke="#a2a995" stroke-width="5"><rect x="30" y="25" width="150" height="115"/><rect x="260" y="25" width="180" height="115"/><rect x="510" y="25" width="160" height="115"/><rect x="30" y="220" width="150" height="60"/><rect x="260" y="220" width="180" height="60"/><rect x="510" y="220" width="160" height="60"/><rect x="30" y="340" width="150" height="65"/><rect x="260" y="340" width="180" height="65"/><rect x="510" y="340" width="160" height="65"/></g><g fill="#d8c18c" font-size="13"><text x="65" y="85">ДВОР A</text><text x="300" y="85">ПЛОЩАДЬ</text><text x="545" y="85">ДВОР B</text><text x="300" y="380">ПЕРЕУЛОК</text></g><circle cx="110" cy="185" r="18" fill="#e4bd5a"/><circle cx="585" cy="185" r="18" fill="#4ca7e8"/></svg>',reactor:'<svg viewBox="0 0 700 430"><rect width="700" height="430" fill="#26363b"/><rect x="30" y="25" width="640" height="380" fill="none" stroke="#83999a" stroke-width="18"/><g fill="#56686a" stroke="#a5b6ae" stroke-width="5"><rect x="70" y="65" width="175" height="105"/><rect x="455" y="65" width="175" height="105"/><rect x="70" y="260" width="175" height="105"/><rect x="455" y="260" width="175" height="105"/><rect x="285" y="145" width="130" height="140" rx="10"/></g><g fill="none" stroke="#d3bd82" stroke-width="18"><path d="M245 115H285M415 115H455M245 315H285M415 315H455M350 145V65M350 285V365"/></g><circle cx="155" cy="215" r="20" fill="#e4bd5a"/><circle cx="545" cy="215" r="20" fill="#4ca7e8"/><text x="350" y="220" text-anchor="middle" fill="#d8e5dc" font-size="15">РЕАКТОР</text></svg>'};
 document.querySelectorAll('[data-map]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-map]').forEach(x=>x.classList.toggle('active',x===b));const m=maps[b.dataset.map];$('map-number').textContent=m.num;$('map-name').textContent=m.name;$('map-description').textContent=m.desc;$('map-art').innerHTML=b.dataset.map==='harbor'?harborSvg:mapSvg[b.dataset.map];});
 $('map-play').onclick=()=>toast('Карта выбрана. Сетевые матчи подключим следующим этапом.');
-document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>toast('Выбран режим: '+b.dataset.mode+'. Матчмейкинг ещё разрабатывается.'));
+document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{if(b.dataset.mode==='Тренировка'){navigate('training');startTraining();}else toast('Выбран режим: '+b.dataset.mode+'. Сетевой матчмейкинг ещё разрабатывается.');});
 document.querySelectorAll('[data-weapon]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-weapon]').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.weapon-card').forEach(x=>x.classList.toggle('hidden',b.dataset.weapon!=='all'&&x.dataset.type!==b.dataset.weapon));});
-supabase.auth.onAuthStateChange(async(_event,session)=>{if(session?.user){user=session.user;try{await load()}catch(e){toast('Ошибка профиля: '+err(e));}}else{user=null;currentProfile=null;showAuth();}});
+
+let trainingStarted=false,trainingFrame=0,trainingScore=0,trainingHits=0;
+function startTraining(){
+ const canvas=$('training-canvas');if(!canvas)return;
+ const ctx=canvas.getContext('2d');const player={x:450,y:420,r:13,speed:3.5};
+ const keys={};let targets=[];
+ const spawn=()=>({x:90+Math.random()*720,y:75+Math.random()*260,r:13,phase:Math.random()*6.28});
+ if(!targets.length)targets=Array.from({length:6},spawn);
+ const draw=()=>{
+  if(!$('page-training')?.classList.contains('active')){trainingFrame=requestAnimationFrame(draw);return;}
+  ctx.clearRect(0,0,900,520);ctx.fillStyle='#17262a';ctx.fillRect(0,0,900,520);
+  ctx.strokeStyle='#31464a';ctx.lineWidth=1;for(let x=0;x<900;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,520);ctx.stroke();}for(let y=0;y<520;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(900,y);ctx.stroke();}
+  ctx.fillStyle='#253b3b';ctx.fillRect(35,35,830,450);ctx.strokeStyle='#82916a';ctx.lineWidth=4;ctx.strokeRect(35,35,830,450);
+  ctx.fillStyle='#3c4b46';[[160,130,120,55],[620,110,130,70],[280,300,150,55],[670,340,100,65]].forEach(a=>ctx.fillRect(...a));
+  targets.forEach(t=>{t.phase+=.035;ctx.beginPath();ctx.arc(t.x,t.y,t.r+Math.sin(t.phase)*2,0,Math.PI*2);ctx.fillStyle='#c4f05b';ctx.fill();ctx.beginPath();ctx.arc(t.x,t.y,4,0,Math.PI*2);ctx.fillStyle='#17212a';ctx.fill();});
+  if(keys.ArrowUp||keys.w)player.y-=player.speed;if(keys.ArrowDown||keys.s)player.y+=player.speed;if(keys.ArrowLeft||keys.a)player.x-=player.speed;if(keys.ArrowRight||keys.d)player.x+=player.speed;
+  player.x=Math.max(55,Math.min(845,player.x));player.y=Math.max(55,Math.min(465,player.y));
+  ctx.beginPath();ctx.arc(player.x,player.y,player.r,0,Math.PI*2);ctx.fillStyle='#65b7e8';ctx.fill();ctx.strokeStyle='#e7f5f8';ctx.lineWidth=3;ctx.stroke();ctx.beginPath();ctx.moveTo(player.x,player.y-5);ctx.lineTo(player.x,player.y-27);ctx.stroke();
+  ctx.fillStyle='#d9e4d9';ctx.font='12px sans-serif';ctx.fillText('ТЫ',player.x-9,player.y+31);
+  trainingFrame=requestAnimationFrame(draw);
+ };
+ if(!trainingStarted){trainingStarted=true;window.addEventListener('keydown',e=>{if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();keys[e.key]=true;});window.addEventListener('keyup',e=>keys[e.key]=false);
+ $('training-fire').onclick=()=>{let best=-1,dist=Infinity;targets.forEach((t,i)=>{const d=Math.hypot(t.x-player.x,t.y-player.y);if(d<dist){dist=d;best=i;}});if(best>=0&&dist<260){targets[best]=spawn();trainingScore+=100;trainingHits++;$('training-score').textContent=trainingScore;$('training-hits').textContent=trainingHits;}else toast('Подойди ближе к мишени.');};
+ document.querySelectorAll('[data-move]').forEach(b=>{const k={up:'ArrowUp',down:'ArrowDown',left:'ArrowLeft',right:'ArrowRight'}[b.dataset.move];b.addEventListener('pointerdown',e=>{e.preventDefault();keys[k]=true;});['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>keys[k]=false));});
+ $('training-reset').onclick=()=>{trainingScore=0;trainingHits=0;player.x=450;player.y=420;targets=Array.from({length:6},spawn);$('training-score').textContent='0';$('training-hits').textContent='0';};
+ }
+ cancelAnimationFrame(trainingFrame);draw();
+}
+\nsupabase.auth.onAuthStateChange(async(_event,session)=>{if(session?.user){user=session.user;try{await load()}catch(e){toast('Ошибка профиля: '+err(e));}}else{user=null;currentProfile=null;showAuth();}});
 const {data:{session}}=await supabase.auth.getSession();if(session?.user){user=session.user;try{await load()}catch(e){toast(err(e));}}
