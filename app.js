@@ -62,5 +62,6 @@ function startTraining(){
  }
  cancelAnimationFrame(trainingFrame);draw();
 }
-\nsupabase.auth.onAuthStateChange(async(_event,session)=>{if(session?.user){user=session.user;try{await load()}catch(e){toast('Ошибка профиля: '+err(e));}}else{user=null;currentProfile=null;showAuth();}});
+
+supabase.auth.onAuthStateChange(async(_event,session)=>{if(session?.user){user=session.user;try{await load()}catch(e){toast('Ошибка профиля: '+err(e));}}else{user=null;currentProfile=null;showAuth();}});
 const {data:{session}}=await supabase.auth.getSession();if(session?.user){user=session.user;try{await load()}catch(e){toast(err(e));}}
