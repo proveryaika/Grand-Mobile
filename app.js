@@ -32,7 +32,50 @@ const harborSvg='<svg viewBox="0 0 700 430"><defs><pattern id="grid" width="28" 
 const mapSvg={district:'<svg viewBox="0 0 700 430"><rect width="700" height="430" fill="#26302c"/><path d="M0 170H700M0 300H700M220 0V430M470 0V430" stroke="#b5a98b" stroke-width="48"/><g fill="#59645b" stroke="#a2a995" stroke-width="5"><rect x="30" y="25" width="150" height="115"/><rect x="260" y="25" width="180" height="115"/><rect x="510" y="25" width="160" height="115"/><rect x="30" y="220" width="150" height="60"/><rect x="260" y="220" width="180" height="60"/><rect x="510" y="220" width="160" height="60"/><rect x="30" y="340" width="150" height="65"/><rect x="260" y="340" width="180" height="65"/><rect x="510" y="340" width="160" height="65"/></g><g fill="#d8c18c" font-size="13"><text x="65" y="85">ДВОР A</text><text x="300" y="85">ПЛОЩАДЬ</text><text x="545" y="85">ДВОР B</text><text x="300" y="380">ПЕРЕУЛОК</text></g><circle cx="110" cy="185" r="18" fill="#e4bd5a"/><circle cx="585" cy="185" r="18" fill="#4ca7e8"/></svg>',reactor:'<svg viewBox="0 0 700 430"><rect width="700" height="430" fill="#26363b"/><rect x="30" y="25" width="640" height="380" fill="none" stroke="#83999a" stroke-width="18"/><g fill="#56686a" stroke="#a5b6ae" stroke-width="5"><rect x="70" y="65" width="175" height="105"/><rect x="455" y="65" width="175" height="105"/><rect x="70" y="260" width="175" height="105"/><rect x="455" y="260" width="175" height="105"/><rect x="285" y="145" width="130" height="140" rx="10"/></g><g fill="none" stroke="#d3bd82" stroke-width="18"><path d="M245 115H285M415 115H455M245 315H285M415 315H455M350 145V65M350 285V365"/></g><circle cx="155" cy="215" r="20" fill="#e4bd5a"/><circle cx="545" cy="215" r="20" fill="#4ca7e8"/><text x="350" y="220" text-anchor="middle" fill="#d8e5dc" font-size="15">РЕАКТОР</text></svg>'};
 document.querySelectorAll('[data-map]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-map]').forEach(x=>x.classList.toggle('active',x===b));const m=maps[b.dataset.map];$('map-number').textContent=m.num;$('map-name').textContent=m.name;$('map-description').textContent=m.desc;$('map-art').innerHTML=b.dataset.map==='harbor'?harborSvg:mapSvg[b.dataset.map];});
 $('map-play').onclick=()=>toast('Карта выбрана. Сетевые матчи подключим следующим этапом.');
-document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{if(b.dataset.mode==='Тренировка'){navigate('training');startTraining();}else toast('Выбран режим: '+b.dataset.mode+'. Сетевой матчмейкинг ещё разрабатывается.');});
+
+let matchStarted=false,matchRaf=0,matchKeys={},matchState=null;
+function startMatch(){
+ const canvas=$('match-canvas');if(!canvas)return;
+ const ctx=canvas.getContext('2d');
+ if(!matchStarted){
+  matchStarted=true;
+  $('match-exit').onclick=()=>{cancelAnimationFrame(matchRaf);navigate('play');};
+  $('match-fire').onclick=()=>matchShoot();
+  $('match-reload').onclick=()=>matchReload();
+  canvas.addEventListener('pointermove',e=>{const r=canvas.getBoundingClientRect();if(matchState){matchState.aim.x=(e.clientX-r.left)*canvas.width/r.width;matchState.aim.y=(e.clientY-r.top)*canvas.height/r.height;}});
+  canvas.addEventListener('pointerdown',()=>matchShoot());
+  window.addEventListener('keydown',e=>{matchKeys[e.key.toLowerCase()]=true;if(e.key.toLowerCase()==='r')matchReload();});
+  window.addEventListener('keyup',e=>matchKeys[e.key.toLowerCase()]=false);
+  document.querySelectorAll('[data-match-move]').forEach(b=>{const k={up:'w',down:'s',left:'a',right:'d'}[b.dataset.matchMove];b.addEventListener('pointerdown',e=>{e.preventDefault();matchKeys[k]=true;});['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>matchKeys[k]=false));});
+ }
+ matchState={player:{x:480,y:470,r:14,hp:100},aim:{x:480,y:100},bots:[],bullets:[],round:1,score:0,ammo:20,reserve:60,reload:0,lastShot:0,over:false};
+ matchSpawnWave();cancelAnimationFrame(matchRaf);matchLoop();
+}
+function matchSpawnWave(){if(!matchState)return;const n=Math.min(3+matchState.round,10);matchState.bots=Array.from({length:n},(_,i)=>({x:90+(i*83)%780,y:70+Math.floor(i/5)*95,hp:2,r:15,step:i*.9}));$('match-round').textContent=matchState.round;}
+function matchReload(){if(!matchState||matchState.reload>0||matchState.ammo===20||matchState.reserve<=0)return;matchState.reload=55;}
+function matchShoot(){if(!matchState||matchState.over||matchState.ammo<=0||matchState.reload>0)return;const now=performance.now();if(now-matchState.lastShot<230)return;matchState.lastShot=now;matchState.ammo--;const p=matchState.player,a=matchState.aim,dx=a.x-p.x,dy=a.y-p.y,len=Math.hypot(dx,dy)||1;matchState.bullets.push({x:p.x,y:p.y,vx:dx/len*12,vy:dy/len*12,life:55});}
+function matchLoop(){
+ const s=matchState;if(!s)return;const c=$('match-canvas'),ctx=c.getContext('2d'),p=s.player;
+ ctx.fillStyle='#142126';ctx.fillRect(0,0,960,560);ctx.strokeStyle='#263b3e';for(let x=0;x<960;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,560);ctx.stroke();}for(let y=0;y<560;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(960,y);ctx.stroke();}
+ ctx.fillStyle='#34423d';[[150,145,145,65],[420,90,120,65],[690,155,140,70],[250,330,125,60],[600,360,150,65]].forEach(v=>ctx.fillRect(...v));ctx.strokeStyle='#81916d';ctx.lineWidth=3;ctx.strokeRect(25,25,910,510);
+ if(!s.over){if(matchKeys.w||matchKeys.arrowup)p.y-=3.3;if(matchKeys.s||matchKeys.arrowdown)p.y+=3.3;if(matchKeys.a||matchKeys.arrowleft)p.x-=3.3;if(matchKeys.d||matchKeys.arrowright)p.x+=3.3;p.x=Math.max(42,Math.min(918,p.x));p.y=Math.max(42,Math.min(518,p.y));
+ if(s.reload>0&&--s.reload===0){const take=Math.min(20-s.ammo,s.reserve);s.ammo+=take;s.reserve-=take;}
+ s.bots.forEach(b=>{b.step+=.025;b.x+=Math.sin(b.step)*.55;});
+ s.bullets=s.bullets.filter(b=>{b.x+=b.vx;b.y+=b.vy;b.life--;let hit=false;s.bots.forEach(t=>{if(t.hp>0&&Math.hypot(t.x-b.x,t.y-b.y)<t.r+4){t.hp--;hit=true;if(t.hp<=0)s.score+=100;}});return !hit&&b.life>0&&b.x>0&&b.x<960&&b.y>0&&b.y<560;});
+ s.bots=s.bots.filter(b=>b.hp>0);
+ if(s.bots.length===0){s.round++;s.reserve=Math.min(120,s.reserve+10);matchSpawnWave();}
+ if(Math.random()<.012){p.hp=Math.max(0,p.hp-1);if(p.hp===0)s.over=true;}
+ }
+ s.bots.forEach(b=>{ctx.fillStyle='#bd7659';ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#f1c2a2';ctx.lineWidth=2;ctx.stroke();ctx.fillStyle='#e9e0d0';ctx.fillRect(b.x-12,b.y-25,24,3);ctx.fillStyle='#c4f05b';ctx.fillRect(b.x-12,b.y-25,12*b.hp,3);});
+ s.bullets.forEach(b=>{ctx.fillStyle='#f1df91';ctx.beginPath();ctx.arc(b.x,b.y,4,0,Math.PI*2);ctx.fill();});
+ const ang=Math.atan2(s.aim.y-p.y,s.aim.x-p.x);ctx.save();ctx.translate(p.x,p.y);ctx.rotate(ang);ctx.fillStyle='#69b9e7';ctx.beginPath();ctx.arc(0,0,p.r,0,Math.PI*2);ctx.fill();ctx.fillStyle='#dbe8ed';ctx.fillRect(5,-4,24,8);ctx.restore();
+ ctx.strokeStyle='#c4f05b';ctx.lineWidth=2;ctx.beginPath();ctx.arc(s.aim.x,s.aim.y,10,0,Math.PI*2);ctx.moveTo(s.aim.x-16,s.aim.y);ctx.lineTo(s.aim.x+16,s.aim.y);ctx.moveTo(s.aim.x,s.aim.y-16);ctx.lineTo(s.aim.x,s.aim.y+16);ctx.stroke();
+ $('match-health').textContent=p.hp;$('match-ammo').textContent=s.reload>0?'ПЕРЕЗАРЯДКА':s.ammo+' / '+s.reserve;$('match-score').textContent=s.score;
+ if(s.over){ctx.fillStyle='#071014cc';ctx.fillRect(0,0,960,560);ctx.fillStyle='#c4f05b';ctx.textAlign='center';ctx.font='900 44px sans-serif';ctx.fillText('ТРЕНИРОВКА ЗАВЕРШЕНА',480,260);ctx.font='20px sans-serif';ctx.fillText('Счёт: '+s.score+' · Нажми «В меню», чтобы выйти',480,305);}
+ matchRaf=requestAnimationFrame(matchLoop);
+}
+
+document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{if(b.dataset.mode==='Тренировка'){navigate('training');startTraining();}else {toast('Запущен локальный матч-прототип: '+b.dataset.mode);navigate('match');startMatch();}});
 document.querySelectorAll('[data-weapon]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-weapon]').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.weapon-card').forEach(x=>x.classList.toggle('hidden',b.dataset.weapon!=='all'&&x.dataset.type!==b.dataset.weapon));});
 
 let trainingStarted=false,trainingFrame=0,trainingScore=0,trainingHits=0;
