@@ -16,3 +16,11 @@
 5. Проверить RLS и административные RPC перед публичным запуском.
 
 Контейнеры бесплатные, шансы показываются заранее, награды косметические. Полноценные соревновательные матчи, античит и authoritative game server потребуют отдельного backend.
+
+## Перед первым запуском
+- В настройках репозитория открой **Settings → Pages** и выбери **GitHub Actions** как источник публикации. Автоматическое включение Pages через workflow недоступно для текущего GitHub-подключения.
+- В Supabase Dashboard → Authentication → Sign In / Providers включи Email и Google, затем внеси Google OAuth Client ID и Secret из Google Cloud Console.
+- Для VK ID потребуется создать приложение VK ID и настроить отдельный совместимый OAuth/OIDC provider. Кнопка VK пока показывает сообщение и не выполняет вход.
+- В Authentication → URL Configuration добавь адрес сайта GitHub Pages в Site URL и Redirect URLs.
+
+Адрес владельца получает роль owner только после регистрации и подтверждения именно этого email. На момент подготовки базы аккаунта с этим адресом ещё не было.
